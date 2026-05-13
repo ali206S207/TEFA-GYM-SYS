@@ -1844,18 +1844,6 @@ async function sb(path, opts={}) {
   } catch(e) { return null; }
 }
 
-// ── Init Lock ──
-function initLock() {
-  const container = document.getElementById('lockParticles');
-  for (let i = 0; i < 25; i++) {
-    const span = document.createElement('span');
-    span.style.cssText = `left:${Math.random()*100}%;animation-duration:${4+Math.random()*6}s;animation-delay:${Math.random()*5}s;width:${1+Math.random()*3}px;height:${1+Math.random()*3}px;`;
-    container.appendChild(span);
-  }
-  document.getElementById('codeInput').addEventListener('keydown', e => { if (e.key==='Enter') checkCode(); });
-  document.getElementById('weekBadge').textContent = 'TEFA GYM 2026';
-  checkSavedSession();
-}
 
 // ── Check saved session ──
 async function checkSavedSession() {
@@ -1964,29 +1952,37 @@ function unlockApp() {
 // ============================================================
 // ADMIN PANEL
 // ============================================================
+function adminEscape(value) {
+  return String(value ?? '').replace(/[&<>"']/g, ch => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[ch]));
+}
+
+function adminArg(value) {
+  return String(value ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+}
+
 async function openAdminPanel() {
   const panel = document.createElement('div');
   panel.id = 'adminPanel';
-  panel.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#0a0a0a;overflow-y:auto;padding:20px 14px;direction:rtl;font-family:Cairo,sans-serif';
+  panel.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#0a0a0a;overflow-y:auto;padding:20px 14px;direction:rtl;font-family:Cairo,sans-serif;color:#fff';
   panel.innerHTML = `
-    <div style="max-width:500px;margin:0 auto">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
-        <div style="font-family:Bebas Neue,sans-serif;font-size:24px;letter-spacing:4px;color:#F5C842">⚙ ADMIN PANEL</div>
-        <button onclick="document.getElementById('adminPanel').remove()" style="background:#1a1a1a;border:1px solid #333;border-radius:8px;color:#aaa;padding:7px 13px;cursor:pointer;font-size:13px">✕</button>
+    <div style="max-width:560px;margin:0 auto">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;gap:12px">
+        <div style="font-family:Bebas Neue,Cairo,sans-serif;font-size:24px;letter-spacing:3px;color:#F5C842">ADMIN PANEL</div>
+        <button onclick="document.getElementById('adminPanel').remove()" style="background:#1a1a1a;border:1px solid #333;border-radius:8px;color:#aaa;padding:7px 13px;cursor:pointer;font-size:13px">X</button>
       </div>
-      <!-- Add code form -->
       <div style="background:#111;border:1px solid #222;border-radius:12px;padding:14px;margin-bottom:14px">
-        <div style="font-size:11px;color:#555;letter-spacing:2px;margin-bottom:10px">➕ إضافة كود جديد</div>
+        <div style="font-size:12px;color:#777;letter-spacing:1px;margin-bottom:10px">اضافة كود جديد</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <input id="newCode"  placeholder="الكود (أرقام)" style="flex:1;min-width:80px;background:#0d0d0d;border:1px solid #333;border-radius:8px;padding:9px 12px;color:#F5C842;font-family:monospace;font-size:15px;outline:none;letter-spacing:2px">
-          <input id="newLabel" placeholder="الاسم / الوصف" style="flex:2;min-width:120px;background:#0d0d0d;border:1px solid #333;border-radius:8px;padding:9px 12px;color:#fff;font-size:13px;outline:none">
-          <input id="newDays"  placeholder="أيام" value="30" style="width:60px;background:#0d0d0d;border:1px solid #333;border-radius:8px;padding:9px 8px;color:#fff;font-size:13px;outline:none;text-align:center">
-          <button onclick="adminAddCode()" style="background:#F5C842;border:none;border-radius:8px;padding:9px 16px;cursor:pointer;font-weight:700;color:#000;font-size:13px">إضافة</button>
+          <input id="newCode" placeholder="الكود" style="flex:1;min-width:90px;background:#0d0d0d;border:1px solid #333;border-radius:8px;padding:9px 12px;color:#F5C842;font-family:monospace;font-size:15px;outline:none;letter-spacing:2px">
+          <input id="newLabel" placeholder="الاسم / الوصف" style="flex:2;min-width:130px;background:#0d0d0d;border:1px solid #333;border-radius:8px;padding:9px 12px;color:#fff;font-size:13px;outline:none">
+          <input id="newDays" placeholder="ايام" value="30" style="width:70px;background:#0d0d0d;border:1px solid #333;border-radius:8px;padding:9px 8px;color:#fff;font-size:13px;outline:none;text-align:center">
+          <button onclick="adminAddCode()" style="background:#F5C842;border:none;border-radius:8px;padding:9px 16px;cursor:pointer;font-weight:700;color:#000;font-size:13px">اضافة</button>
         </div>
       </div>
-      <!-- Codes table -->
       <div id="adminTableWrap" style="background:#111;border:1px solid #222;border-radius:12px;overflow:hidden;margin-bottom:14px">
-        <div style="padding:16px;text-align:center;color:#555;font-size:13px">⏳ جاري التحميل...</div>
+        <div style="padding:16px;text-align:center;color:#555;font-size:13px">جاري التحميل...</div>
       </div>
     </div>`;
   document.body.appendChild(panel);
@@ -1997,87 +1993,85 @@ async function loadAdminTable() {
   const wrap = document.getElementById('adminTableWrap');
   if (!wrap) return;
   const rows = await sb('gym_codes?select=*&order=created_at.asc');
-  if (!rows) { wrap.innerHTML = '<div style="padding:16px;text-align:center;color:#f44">❌ خطأ في الاتصال</div>'; return; }
+  if (!rows) { wrap.innerHTML = '<div style="padding:16px;text-align:center;color:#f44">خطأ في الاتصال</div>'; return; }
 
-  const activated = rows.filter(r=>r.device_uid).length;
-  const blocked   = rows.filter(r=>r.status==='blocked').length;
-
+  const activated = rows.filter(r => r.device_uid).length;
+  const blocked = rows.filter(r => r.status === 'blocked').length;
   const trs = rows.map(r => {
-    const isActive  = !!r.device_uid;
+    const isActive = !!r.device_uid;
     const isBlocked = r.status === 'blocked';
-    const ls = r.last_seen ? new Date(r.last_seen).toLocaleDateString('ar-EG') : '—';
+    const code = adminEscape(r.code);
+    const arg = adminArg(r.code);
+    const label = adminEscape(r.label || '-');
+    const ls = r.last_seen ? new Date(r.last_seen).toLocaleDateString('ar-EG') : '-';
     const expiry = r.activated_at && r.expire_days
-      ? new Date(new Date(r.activated_at).getTime() + r.expire_days*864e5).toLocaleDateString('ar-EG')
-      : '—';
-    const statusIcon = isBlocked ? '<span style="color:#f44">🔴 محظور</span>'
-                     : isActive  ? '<span style="color:#F5C842">🟡 مفعّل</span>'
-                     :             '<span style="color:#39d353">🟢 متاح</span>';
+      ? new Date(new Date(r.activated_at).getTime() + r.expire_days * 864e5).toLocaleDateString('ar-EG')
+      : '-';
+    const statusIcon = isBlocked ? '<span style="color:#f44">محظور</span>'
+      : isActive ? '<span style="color:#F5C842">مفعل</span>'
+      : '<span style="color:#39d353">متاح</span>';
     return `<tr style="border-bottom:1px solid #1a1a1a">
-      <td style="padding:8px 10px;color:#F5C842;font-family:monospace;font-size:15px;letter-spacing:2px">${r.code}</td>
-      <td style="padding:8px 10px;color:#aaa;font-size:12px">${r.label||'—'}</td>
-      <td style="padding:8px 10px;font-size:11px">${statusIcon}</td>
-      <td style="padding:8px 10px;font-size:10px;color:#555">${ls}</td>
-      <td style="padding:8px 10px;font-size:10px;color:#555">${expiry}</td>
-      <td style="padding:8px 10px">
-        <div style="display:flex;gap:4px">
-          ${isActive ? `<button onclick="adminAction('reset','${r.code}')" title="تحرير الجهاز" style="background:#1a1a1a;border:1px solid #333;border-radius:5px;color:#F5C842;padding:4px 8px;cursor:pointer;font-size:11px">↺</button>` : ''}
-          ${!isBlocked ? `<button onclick="adminAction('block','${r.code}')" title="حظر" style="background:#1a1a1a;border:1px solid #333;border-radius:5px;color:#f44;padding:4px 8px;cursor:pointer;font-size:11px">🚫</button>`
-                        : `<button onclick="adminAction('unblock','${r.code}')" title="رفع الحظر" style="background:#1a1a1a;border:1px solid #333;border-radius:5px;color:#39d353;padding:4px 8px;cursor:pointer;font-size:11px">✓</button>`}
-          <button onclick="adminAction('delete','${r.code}')" title="حذف" style="background:#1a1a1a;border:1px solid #333;border-radius:5px;color:#666;padding:4px 8px;cursor:pointer;font-size:11px">🗑</button>
-        </div>
-      </td>
+      <td style="padding:8px 10px;color:#F5C842;font-family:monospace;font-size:15px;letter-spacing:2px">${code}</td>
+      <td style="padding:8px 10px;color:#aaa;font-size:12px">${label}</td>
+      <td style="padding:8px 10px;font-size:12px">${statusIcon}</td>
+      <td style="padding:8px 10px;font-size:10px;color:#777">${ls}</td>
+      <td style="padding:8px 10px;font-size:10px;color:#777">${expiry}</td>
+      <td style="padding:8px 10px"><div style="display:flex;gap:4px;flex-wrap:wrap">
+        ${isActive ? `<button onclick="adminAction('reset','${arg}')" title="تحرير الجهاز" style="background:#1a1a1a;border:1px solid #333;border-radius:5px;color:#F5C842;padding:4px 8px;cursor:pointer;font-size:11px">تحرير</button>` : ''}
+        ${!isBlocked ? `<button onclick="adminAction('block','${arg}')" title="حظر" style="background:#1a1a1a;border:1px solid #333;border-radius:5px;color:#f44;padding:4px 8px;cursor:pointer;font-size:11px">حظر</button>`
+                    : `<button onclick="adminAction('unblock','${arg}')" title="رفع الحظر" style="background:#1a1a1a;border:1px solid #333;border-radius:5px;color:#39d353;padding:4px 8px;cursor:pointer;font-size:11px">فك</button>`}
+        <button onclick="adminAction('delete','${arg}')" title="حذف" style="background:#1a1a1a;border:1px solid #333;border-radius:5px;color:#aaa;padding:4px 8px;cursor:pointer;font-size:11px">حذف</button>
+      </div></td>
     </tr>`;
   }).join('');
 
   wrap.innerHTML = `
-    <div style="padding:10px 14px;background:#181818;display:flex;gap:16px;font-size:11px;color:#555;border-bottom:1px solid #1a1a1a">
-      <span>الإجمالي: <b style="color:#F5C842">${rows.length}</b></span>
-      <span>مفعّل: <b style="color:#F5C842">${activated}</b></span>
+    <div style="padding:10px 14px;background:#181818;display:flex;gap:16px;font-size:12px;color:#777;border-bottom:1px solid #1a1a1a;flex-wrap:wrap">
+      <span>الاجمالي: <b style="color:#F5C842">${rows.length}</b></span>
+      <span>مفعل: <b style="color:#F5C842">${activated}</b></span>
       <span>محظور: <b style="color:#f44">${blocked}</b></span>
     </div>
-    <div style="overflow-x:auto">
-    <table style="width:100%;border-collapse:collapse;min-width:400px">
+    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:460px">
       <thead><tr style="background:#0d0d0d">
-        <th style="padding:8px 10px;text-align:right;font-size:10px;color:#444">الكود</th>
-        <th style="padding:8px 10px;text-align:right;font-size:10px;color:#444">الاسم</th>
-        <th style="padding:8px 10px;text-align:right;font-size:10px;color:#444">الحالة</th>
-        <th style="padding:8px 10px;text-align:right;font-size:10px;color:#444">آخر ظهور</th>
-        <th style="padding:8px 10px;text-align:right;font-size:10px;color:#444">انتهاء</th>
-        <th style="padding:8px 10px;text-align:right;font-size:10px;color:#444">إجراء</th>
-      </tr></thead>
-      <tbody>${trs}</tbody>
+        <th style="padding:8px 10px;text-align:right;font-size:11px;color:#666">الكود</th>
+        <th style="padding:8px 10px;text-align:right;font-size:11px;color:#666">الاسم</th>
+        <th style="padding:8px 10px;text-align:right;font-size:11px;color:#666">الحالة</th>
+        <th style="padding:8px 10px;text-align:right;font-size:11px;color:#666">آخر ظهور</th>
+        <th style="padding:8px 10px;text-align:right;font-size:11px;color:#666">انتهاء</th>
+        <th style="padding:8px 10px;text-align:right;font-size:11px;color:#666">إجراء</th>
+      </tr></thead><tbody>${trs}</tbody>
     </table></div>`;
 }
 
 async function adminAction(action, code) {
-  const msgs = { reset:'تحرير الكود من الجهاز؟', block:'حظر هذا الكود؟', delete:'حذف الكود نهائياً؟' };
+  const msgs = { reset:'تحرير الكود من الجهاز؟', block:'حظر هذا الكود؟', delete:'حذف الكود نهائيا؟' };
   if (msgs[action] && !confirm(msgs[action])) return;
+  const safeCode = encodeURIComponent(code);
   if (action === 'reset') {
-    await sb(`gym_codes?code=eq.${code}`, { method:'PATCH', prefer:'return=minimal', body: JSON.stringify({device_uid:null, activated_at:null}) });
+    await sb(`gym_codes?code=eq.${safeCode}`, { method:'PATCH', prefer:'return=minimal', body: JSON.stringify({device_uid:null, activated_at:null}) });
   } else if (action === 'block') {
-    await sb(`gym_codes?code=eq.${code}`, { method:'PATCH', prefer:'return=minimal', body: JSON.stringify({status:'blocked'}) });
+    await sb(`gym_codes?code=eq.${safeCode}`, { method:'PATCH', prefer:'return=minimal', body: JSON.stringify({status:'blocked'}) });
   } else if (action === 'unblock') {
-    await sb(`gym_codes?code=eq.${code}`, { method:'PATCH', prefer:'return=minimal', body: JSON.stringify({status:'active'}) });
+    await sb(`gym_codes?code=eq.${safeCode}`, { method:'PATCH', prefer:'return=minimal', body: JSON.stringify({status:'active'}) });
   } else if (action === 'delete') {
-    await sb(`gym_codes?code=eq.${code}`, { method:'DELETE', prefer:'return=minimal' });
+    await sb(`gym_codes?code=eq.${safeCode}`, { method:'DELETE', prefer:'return=minimal' });
   }
   await loadAdminTable();
 }
 
 async function adminAddCode() {
-  const code  = document.getElementById('newCode').value.trim();
+  const code = document.getElementById('newCode').value.trim();
   const label = document.getElementById('newLabel').value.trim();
-  const days  = parseInt(document.getElementById('newDays').value) || 30;
+  const days = parseInt(document.getElementById('newDays').value, 10) || 30;
   if (!code) { alert('ادخل الكود'); return; }
-  const res = await sb('gym_codes', {
-    method: 'POST', prefer: 'return=minimal',
+  await sb('gym_codes', {
+    method:'POST', prefer:'return=minimal',
     body: JSON.stringify({ code, label, expire_days: days, status:'active' })
   });
   document.getElementById('newCode').value = '';
   document.getElementById('newLabel').value = '';
   await loadAdminTable();
 }
-
 // PPL Program
 const PPL_PROGRAM = [
   {
@@ -2194,6 +2188,50 @@ function initLock() {
   checkSavedSession();
 }
 
+// ============================================================
+// APP INIT + NAVIGATION
+// ============================================================
+function renderDaysList() {
+  const list = document.getElementById('daysList');
+  if (!list) return;
+
+  list.innerHTML = PPL_PROGRAM.map((day, i) => `
+    <div class="day-card ${day.isRest ? 'rest-day' : ''}" id="dayCard_${i}">
+      <div class="day-header" onclick="toggleDay(${i})">
+        <div class="day-main">
+          <div class="day-emoji">${day.emoji}</div>
+          <div>
+            <div class="day-title">${day.day} - ${day.type}</div>
+            <div class="day-subtitle">${day.desc || day.label || ''}</div>
+          </div>
+        </div>
+        <div class="day-arrow">⌄</div>
+      </div>
+      <div class="day-body">
+        ${day.isRest ? renderRestDay() : renderExercisesList(day.exercises, i)}
+      </div>
+    </div>
+  `).join('');
+}
+
+function initApp() {
+  loadState();
+  renderDaysList();
+  renderLog();
+  updateStats();
+}
+
+function switchPage(name, btn) {
+  document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
+  const target = document.getElementById(`page${name}`);
+  if (target) target.classList.add('active');
+
+  document.querySelectorAll('.nav-btn').forEach(navBtn => navBtn.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+
+  if (name === 'Log') renderLog();
+  updateStats();
+}
 function renderRestDay() {
   return `
     <div style="text-align:center;padding:24px 0">
@@ -2882,7 +2920,8 @@ function exitSplash() {
     sp.style.display='none';
     // Show floating cards over lock screen
     const fc = document.getElementById('floatCards');
-    fc.style.display = 'block';
+    const lock = document.getElementById('lockScreen');
+    if (fc && lock && lock.style.display !== 'none') fc.style.display = 'block';
   }, 600);
 }
 // Wake audio on first interaction
@@ -2894,6 +2933,7 @@ document.addEventListener('click', () => {
 }, { once: true });
 
 
+initSplash();
 initLock();
 </script>
 </body>
