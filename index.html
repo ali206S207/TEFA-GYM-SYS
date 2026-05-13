@@ -1981,6 +1981,10 @@ async function openAdminPanel() {
           <button onclick="adminAddCode()" style="background:#F5C842;border:none;border-radius:8px;padding:9px 16px;cursor:pointer;font-weight:700;color:#000;font-size:13px">اضافة</button>
         </div>
       </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;flex-wrap:wrap">
+        <div id="adminLastRefresh" style="font-size:12px;color:#777">-</div>
+        <button onclick="loadAdminTable()" style="background:#1a1a1a;border:1px solid #333;border-radius:8px;color:#F5C842;padding:8px 13px;cursor:pointer;font-weight:700;font-size:12px">تحديث</button>
+      </div>
       <div id="adminTableWrap" style="background:#111;border:1px solid #222;border-radius:12px;overflow:hidden;margin-bottom:14px">
         <div style="padding:16px;text-align:center;color:#555;font-size:13px">جاري التحميل...</div>
       </div>
@@ -1993,6 +1997,8 @@ async function loadAdminTable() {
   const wrap = document.getElementById('adminTableWrap');
   if (!wrap) return;
   const rows = await sb('gym_codes?select=*&order=created_at.asc');
+  const lastRefresh = document.getElementById('adminLastRefresh');
+  if (lastRefresh) lastRefresh.textContent = 'آخر تحديث: ' + new Date().toLocaleTimeString('ar-EG');
   if (!rows) { wrap.innerHTML = '<div style="padding:16px;text-align:center;color:#f44">خطأ في الاتصال</div>'; return; }
 
   const activated = rows.filter(r => r.device_uid).length;
